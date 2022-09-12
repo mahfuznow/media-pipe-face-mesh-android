@@ -7,7 +7,7 @@ android {
     compileSdkVersion 33
 
     defaultConfig {
-        applicationId "com.google.mediapipe.apps.facemesh"
+        applicationId "com.mahfuznow.mediapipe.examples.facemesh"
         minSdkVersion 21
         targetSdkVersion 33
         versionCode 1
