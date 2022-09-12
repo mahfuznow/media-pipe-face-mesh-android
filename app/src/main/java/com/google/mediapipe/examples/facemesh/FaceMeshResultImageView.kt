@@ -11,165 +11,174 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+package com.google.mediapipe.examples.facemesh
 
-package com.google.mediapipe.examples.facemesh;
+import android.content.Context
+import android.graphics.*
+import android.util.Size
+import androidx.appcompat.widget.AppCompatImageView
+import com.google.common.collect.ImmutableSet
+import com.google.mediapipe.formats.proto.LandmarkProto.NormalizedLandmark
+import com.google.mediapipe.solutions.facemesh.FaceMesh
+import com.google.mediapipe.solutions.facemesh.FaceMeshConnections
+import com.google.mediapipe.solutions.facemesh.FaceMeshResult
 
-import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Matrix;
-import android.graphics.Paint;
-import androidx.appcompat.widget.AppCompatImageView;
-import android.util.Size;
-import com.google.common.collect.ImmutableSet;
-import com.google.mediapipe.formats.proto.LandmarkProto.NormalizedLandmark;
-import com.google.mediapipe.solutions.facemesh.FaceMesh;
-import com.google.mediapipe.solutions.facemesh.FaceMeshConnections;
-import com.google.mediapipe.solutions.facemesh.FaceMeshResult;
-import java.util.List;
+/** An ImageView implementation for displaying [FaceMeshResult].  */
+class FaceMeshResultImageView(context: Context?) : AppCompatImageView(
+    context!!
+) {
+    private var latest: Bitmap? = null
 
-/** An ImageView implementation for displaying {@link FaceMeshResult}. */
-public class FaceMeshResultImageView extends AppCompatImageView {
-  private static final String TAG = "FaceMeshResultImageView";
-
-  private static final int TESSELATION_COLOR = Color.parseColor("#70C0C0C0");
-  private static final int TESSELATION_THICKNESS = 3; // Pixels
-  private static final int RIGHT_EYE_COLOR = Color.parseColor("#FF3030");
-  private static final int RIGHT_EYE_THICKNESS = 5; // Pixels
-  private static final int RIGHT_EYEBROW_COLOR = Color.parseColor("#FF3030");
-  private static final int RIGHT_EYEBROW_THICKNESS = 5; // Pixels
-  private static final int LEFT_EYE_COLOR = Color.parseColor("#30FF30");
-  private static final int LEFT_EYE_THICKNESS = 5; // Pixels
-  private static final int LEFT_EYEBROW_COLOR = Color.parseColor("#30FF30");
-  private static final int LEFT_EYEBROW_THICKNESS = 5; // Pixels
-  private static final int FACE_OVAL_COLOR = Color.parseColor("#E0E0E0");
-  private static final int FACE_OVAL_THICKNESS = 5; // Pixels
-  private static final int LIPS_COLOR = Color.parseColor("#E0E0E0");
-  private static final int LIPS_THICKNESS = 5; // Pixels
-  private Bitmap latest;
-
-  public FaceMeshResultImageView(Context context) {
-    super(context);
-    setScaleType(AppCompatImageView.ScaleType.FIT_CENTER);
-  }
-
-  /**
-   * Sets a {@link FaceMeshResult} to render.
-   *
-   * @param result a {@link FaceMeshResult} object that contains the solution outputs and the input
-   *     {@link Bitmap}.
-   */
-  public void setFaceMeshResult(FaceMeshResult result) {
-    if (result == null) {
-      return;
+    /**
+     * Sets a [FaceMeshResult] to render.
+     *
+     * @param result a [FaceMeshResult] object that contains the solution outputs and the input
+     * [Bitmap].
+     */
+    fun setFaceMeshResult(result: FaceMeshResult?) {
+        if (result == null) {
+            return
+        }
+        val bmInput = result.inputBitmap()
+        val width = bmInput.width
+        val height = bmInput.height
+        latest = Bitmap.createBitmap(width, height, bmInput.config)
+        val canvas = Canvas(latest!!)
+        val imageSize = Size(width, height)
+        canvas.drawBitmap(bmInput, Matrix(), null)
+        val numFaces = result.multiFaceLandmarks().size
+        for (i in 0 until numFaces) {
+            drawLandmarksOnCanvas(
+                canvas,
+                result.multiFaceLandmarks()[i].landmarkList,
+                FaceMeshConnections.FACEMESH_TESSELATION,
+                imageSize,
+                TESSELATION_COLOR,
+                TESSELATION_THICKNESS
+            )
+            drawLandmarksOnCanvas(
+                canvas,
+                result.multiFaceLandmarks()[i].landmarkList,
+                FaceMeshConnections.FACEMESH_RIGHT_EYE,
+                imageSize,
+                RIGHT_EYE_COLOR,
+                RIGHT_EYE_THICKNESS
+            )
+            drawLandmarksOnCanvas(
+                canvas,
+                result.multiFaceLandmarks()[i].landmarkList,
+                FaceMeshConnections.FACEMESH_RIGHT_EYEBROW,
+                imageSize,
+                RIGHT_EYEBROW_COLOR,
+                RIGHT_EYEBROW_THICKNESS
+            )
+            drawLandmarksOnCanvas(
+                canvas,
+                result.multiFaceLandmarks()[i].landmarkList,
+                FaceMeshConnections.FACEMESH_LEFT_EYE,
+                imageSize,
+                LEFT_EYE_COLOR,
+                LEFT_EYE_THICKNESS
+            )
+            drawLandmarksOnCanvas(
+                canvas,
+                result.multiFaceLandmarks()[i].landmarkList,
+                FaceMeshConnections.FACEMESH_LEFT_EYEBROW,
+                imageSize,
+                LEFT_EYEBROW_COLOR,
+                LEFT_EYEBROW_THICKNESS
+            )
+            drawLandmarksOnCanvas(
+                canvas,
+                result.multiFaceLandmarks()[i].landmarkList,
+                FaceMeshConnections.FACEMESH_FACE_OVAL,
+                imageSize,
+                FACE_OVAL_COLOR,
+                FACE_OVAL_THICKNESS
+            )
+            drawLandmarksOnCanvas(
+                canvas,
+                result.multiFaceLandmarks()[i].landmarkList,
+                FaceMeshConnections.FACEMESH_LIPS,
+                imageSize,
+                LIPS_COLOR,
+                LIPS_THICKNESS
+            )
+            if (result.multiFaceLandmarks()[i].landmarkCount
+                == FaceMesh.FACEMESH_NUM_LANDMARKS_WITH_IRISES
+            ) {
+                drawLandmarksOnCanvas(
+                    canvas,
+                    result.multiFaceLandmarks()[i].landmarkList,
+                    FaceMeshConnections.FACEMESH_RIGHT_IRIS,
+                    imageSize,
+                    RIGHT_EYE_COLOR,
+                    RIGHT_EYE_THICKNESS
+                )
+                drawLandmarksOnCanvas(
+                    canvas,
+                    result.multiFaceLandmarks()[i].landmarkList,
+                    FaceMeshConnections.FACEMESH_LEFT_IRIS,
+                    imageSize,
+                    LEFT_EYE_COLOR,
+                    LEFT_EYE_THICKNESS
+                )
+            }
+        }
     }
-    Bitmap bmInput = result.inputBitmap();
-    int width = bmInput.getWidth();
-    int height = bmInput.getHeight();
-    latest = Bitmap.createBitmap(width, height, bmInput.getConfig());
-    Canvas canvas = new Canvas(latest);
-    Size imageSize = new Size(width, height);
-    canvas.drawBitmap(bmInput, new Matrix(), null);
-    int numFaces = result.multiFaceLandmarks().size();
-    for (int i = 0; i < numFaces; ++i) {
-      drawLandmarksOnCanvas(
-          canvas,
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
-          FaceMeshConnections.FACEMESH_TESSELATION,
-          imageSize,
-          TESSELATION_COLOR,
-          TESSELATION_THICKNESS);
-      drawLandmarksOnCanvas(
-          canvas,
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
-          FaceMeshConnections.FACEMESH_RIGHT_EYE,
-          imageSize,
-          RIGHT_EYE_COLOR,
-          RIGHT_EYE_THICKNESS);
-      drawLandmarksOnCanvas(
-          canvas,
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
-          FaceMeshConnections.FACEMESH_RIGHT_EYEBROW,
-          imageSize,
-          RIGHT_EYEBROW_COLOR,
-          RIGHT_EYEBROW_THICKNESS);
-      drawLandmarksOnCanvas(
-          canvas,
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
-          FaceMeshConnections.FACEMESH_LEFT_EYE,
-          imageSize,
-          LEFT_EYE_COLOR,
-          LEFT_EYE_THICKNESS);
-      drawLandmarksOnCanvas(
-          canvas,
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
-          FaceMeshConnections.FACEMESH_LEFT_EYEBROW,
-          imageSize,
-          LEFT_EYEBROW_COLOR,
-          LEFT_EYEBROW_THICKNESS);
-      drawLandmarksOnCanvas(
-          canvas,
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
-          FaceMeshConnections.FACEMESH_FACE_OVAL,
-          imageSize,
-          FACE_OVAL_COLOR,
-          FACE_OVAL_THICKNESS);
-      drawLandmarksOnCanvas(
-          canvas,
-          result.multiFaceLandmarks().get(i).getLandmarkList(),
-          FaceMeshConnections.FACEMESH_LIPS,
-          imageSize,
-          LIPS_COLOR,
-          LIPS_THICKNESS);
-      if (result.multiFaceLandmarks().get(i).getLandmarkCount()
-          == FaceMesh.FACEMESH_NUM_LANDMARKS_WITH_IRISES) {
-        drawLandmarksOnCanvas(
-            canvas,
-            result.multiFaceLandmarks().get(i).getLandmarkList(),
-            FaceMeshConnections.FACEMESH_RIGHT_IRIS,
-            imageSize,
-            RIGHT_EYE_COLOR,
-            RIGHT_EYE_THICKNESS);
-        drawLandmarksOnCanvas(
-            canvas,
-            result.multiFaceLandmarks().get(i).getLandmarkList(),
-            FaceMeshConnections.FACEMESH_LEFT_IRIS,
-            imageSize,
-            LEFT_EYE_COLOR,
-            LEFT_EYE_THICKNESS);
-      }
-    }
-  }
 
-  /** Updates the image view with the latest {@link FaceMeshResult}. */
-  public void update() {
-    postInvalidate();
-    if (latest != null) {
-      setImageBitmap(latest);
+    /** Updates the image view with the latest [FaceMeshResult].  */
+    fun update() {
+        postInvalidate()
+        if (latest != null) {
+            setImageBitmap(latest)
+        }
     }
-  }
 
-  private void drawLandmarksOnCanvas(
-      Canvas canvas,
-      List<NormalizedLandmark> faceLandmarkList,
-      ImmutableSet<FaceMeshConnections.Connection> connections,
-      Size imageSize,
-      int color,
-      int thickness) {
-    // Draw connections.
-    for (FaceMeshConnections.Connection c : connections) {
-      Paint connectionPaint = new Paint();
-      connectionPaint.setColor(color);
-      connectionPaint.setStrokeWidth(thickness);
-      NormalizedLandmark start = faceLandmarkList.get(c.start());
-      NormalizedLandmark end = faceLandmarkList.get(c.end());
-      canvas.drawLine(
-          start.getX() * imageSize.getWidth(),
-          start.getY() * imageSize.getHeight(),
-          end.getX() * imageSize.getWidth(),
-          end.getY() * imageSize.getHeight(),
-          connectionPaint);
+    private fun drawLandmarksOnCanvas(
+        canvas: Canvas,
+        faceLandmarkList: List<NormalizedLandmark>,
+        connections: ImmutableSet<FaceMeshConnections.Connection>,
+        imageSize: Size,
+        color: Int,
+        thickness: Int
+    ) {
+        // Draw connections.
+        for (c in connections) {
+            val connectionPaint = Paint()
+            connectionPaint.color = color
+            connectionPaint.strokeWidth = thickness.toFloat()
+            val start = faceLandmarkList[c.start()]
+            val end = faceLandmarkList[c.end()]
+            canvas.drawLine(
+                start.x * imageSize.width,
+                start.y * imageSize.height,
+                end.x * imageSize.width,
+                end.y * imageSize.height,
+                connectionPaint
+            )
+        }
     }
-  }
+
+    companion object {
+        private const val TAG = "FaceMeshResultImageView"
+        private val TESSELATION_COLOR = Color.parseColor("#70C0C0C0")
+        private const val TESSELATION_THICKNESS = 3 // Pixels
+        private val RIGHT_EYE_COLOR = Color.parseColor("#FF3030")
+        private const val RIGHT_EYE_THICKNESS = 5 // Pixels
+        private val RIGHT_EYEBROW_COLOR = Color.parseColor("#FF3030")
+        private const val RIGHT_EYEBROW_THICKNESS = 5 // Pixels
+        private val LEFT_EYE_COLOR = Color.parseColor("#30FF30")
+        private const val LEFT_EYE_THICKNESS = 5 // Pixels
+        private val LEFT_EYEBROW_COLOR = Color.parseColor("#30FF30")
+        private const val LEFT_EYEBROW_THICKNESS = 5 // Pixels
+        private val FACE_OVAL_COLOR = Color.parseColor("#E0E0E0")
+        private const val FACE_OVAL_THICKNESS = 5 // Pixels
+        private val LIPS_COLOR = Color.parseColor("#E0E0E0")
+        private const val LIPS_THICKNESS = 5 // Pixels
+    }
+
+    init {
+        scaleType = ScaleType.FIT_CENTER
+    }
 }
