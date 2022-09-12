@@ -12,6 +12,35 @@ import java.nio.ByteOrder
 
 /** A custom implementation of [ResultGlRenderer] to render [FaceMeshResult].  */
 class FaceMeshResultGlRenderer : ResultGlRenderer<FaceMeshResult?> {
+
+    companion object {
+        private const val TAG = "FaceMeshResultGlRenderer"
+        private val TESSELATION_COLOR = floatArrayOf(0.75f, 0.75f, 0.75f, 0.5f)
+        private const val TESSELATION_THICKNESS = 5
+        private val RIGHT_EYE_COLOR = floatArrayOf(1f, 0.2f, 0.2f, 1f)
+        private const val RIGHT_EYE_THICKNESS = 8
+        private val RIGHT_EYEBROW_COLOR = floatArrayOf(1f, 0.2f, 0.2f, 1f)
+        private const val RIGHT_EYEBROW_THICKNESS = 8
+        private val LEFT_EYE_COLOR = floatArrayOf(0.2f, 1f, 0.2f, 1f)
+        private const val LEFT_EYE_THICKNESS = 8
+        private val LEFT_EYEBROW_COLOR = floatArrayOf(0.2f, 1f, 0.2f, 1f)
+        private const val LEFT_EYEBROW_THICKNESS = 8
+        private val FACE_OVAL_COLOR = floatArrayOf(0.9f, 0.9f, 0.9f, 1f)
+        private const val FACE_OVAL_THICKNESS = 8
+        private val LIPS_COLOR = floatArrayOf(0.9f, 0.9f, 0.9f, 1f)
+        private const val LIPS_THICKNESS = 8
+        private const val VERTEX_SHADER = ("uniform mat4 uProjectionMatrix;\n"
+                + "attribute vec4 vPosition;\n"
+                + "void main() {\n"
+                + "  gl_Position = uProjectionMatrix * vPosition;\n"
+                + "}")
+        private const val FRAGMENT_SHADER = ("precision mediump float;\n"
+                + "uniform vec4 uColor;\n"
+                + "void main() {\n"
+                + "  gl_FragColor = uColor;\n"
+                + "}")
+    }
+
     private var program = 0
     private var positionHandle = 0
     private var projectionMatrixHandle = 0
@@ -135,33 +164,5 @@ class FaceMeshResultGlRenderer : ResultGlRenderer<FaceMeshResult?> {
             GLES20.glVertexAttribPointer(positionHandle, 2, GLES20.GL_FLOAT, false, 0, vertexBuffer)
             GLES20.glDrawArrays(GLES20.GL_LINES, 0, 2)
         }
-    }
-
-    companion object {
-        private const val TAG = "FaceMeshResultGlRenderer"
-        private val TESSELATION_COLOR = floatArrayOf(0.75f, 0.75f, 0.75f, 0.5f)
-        private const val TESSELATION_THICKNESS = 5
-        private val RIGHT_EYE_COLOR = floatArrayOf(1f, 0.2f, 0.2f, 1f)
-        private const val RIGHT_EYE_THICKNESS = 8
-        private val RIGHT_EYEBROW_COLOR = floatArrayOf(1f, 0.2f, 0.2f, 1f)
-        private const val RIGHT_EYEBROW_THICKNESS = 8
-        private val LEFT_EYE_COLOR = floatArrayOf(0.2f, 1f, 0.2f, 1f)
-        private const val LEFT_EYE_THICKNESS = 8
-        private val LEFT_EYEBROW_COLOR = floatArrayOf(0.2f, 1f, 0.2f, 1f)
-        private const val LEFT_EYEBROW_THICKNESS = 8
-        private val FACE_OVAL_COLOR = floatArrayOf(0.9f, 0.9f, 0.9f, 1f)
-        private const val FACE_OVAL_THICKNESS = 8
-        private val LIPS_COLOR = floatArrayOf(0.9f, 0.9f, 0.9f, 1f)
-        private const val LIPS_THICKNESS = 8
-        private const val VERTEX_SHADER = ("uniform mat4 uProjectionMatrix;\n"
-                + "attribute vec4 vPosition;\n"
-                + "void main() {\n"
-                + "  gl_Position = uProjectionMatrix * vPosition;\n"
-                + "}")
-        private const val FRAGMENT_SHADER = ("precision mediump float;\n"
-                + "uniform vec4 uColor;\n"
-                + "void main() {\n"
-                + "  gl_FragColor = uColor;\n"
-                + "}")
     }
 }
