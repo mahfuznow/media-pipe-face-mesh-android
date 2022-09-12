@@ -2,10 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.google.mediapipe.examples.facemesh">
 
-  <uses-sdk
-      android:minSdkVersion="21"
-      android:targetSdkVersion="30" />
-
   <!-- For loading images from gallery -->
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
   <!-- For using the camera -->
@@ -22,8 +18,10 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:supportsRtl="true"
       android:theme="@style/AppTheme">
-    <activity android:name=".MainActivity"
-              android:screenOrientation="portrait">
+    <activity
+        android:name=".MainActivity"
+        android:screenOrientation="portrait"
+        android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
 
