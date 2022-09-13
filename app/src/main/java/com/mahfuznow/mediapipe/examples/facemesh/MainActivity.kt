@@ -31,6 +31,17 @@ class MainActivity : AppCompatActivity() {
         initialize()
     }
 
+    override fun onResume() {
+        super.onResume()
+        setUpCamera()
+        startCameraAfterGLSurfaceViewIsAttached()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        cameraInput.close()
+    }
+
     private fun initialize() {
         //FaceMesh
         setUpFaceMesh()
@@ -77,8 +88,7 @@ class MainActivity : AppCompatActivity() {
             glSurfaceView.setRenderData(faceMeshResult)
             glSurfaceView.requestRender()
         }
-        // The runnable to start camera after the gl surface view is attached.
-        glSurfaceView.post { startCamera() }
+        startCameraAfterGLSurfaceViewIsAttached()
     }
 
     private fun attachGLSurfaceViewToFrameLayout() {
@@ -88,6 +98,11 @@ class MainActivity : AppCompatActivity() {
         frameLayout.addView(glSurfaceView)
         glSurfaceView.visibility = View.VISIBLE
         frameLayout.requestLayout()
+    }
+
+    private fun startCameraAfterGLSurfaceViewIsAttached() {
+        // The runnable to start camera after the gl surface view is attached.
+        glSurfaceView.post { startCamera() }
     }
 
     private fun startCamera() {
