@@ -1,9 +1,11 @@
 package com.mahfuznow.mediapipe.examples.facemesh
 
-import android.os.Bundle
+import android.content.Context
+import android.os.*
 import android.util.Log
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.google.mediapipe.framework.TextureFrame
 import com.google.mediapipe.solutioncore.CameraInput
@@ -24,6 +26,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cameraInput: CameraInput
     private lateinit var glSurfaceView: SolutionGlSurfaceView<FaceMeshResult>
 
+    //Sleep Detector
+    private lateinit var sleepDetector: SleepDetector
+
+    //UI
+    private lateinit var frameLayout: FrameLayout
+    private lateinit var textView: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -43,6 +52,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initialize() {
+        //UI
+        setUpUiElements()
+
         //FaceMesh
         setUpFaceMesh()
 
@@ -54,6 +66,14 @@ class MainActivity : AppCompatActivity() {
 
         //FrameLayout
         attachGLSurfaceViewToFrameLayout()
+
+        //Sleep Detector
+        setUpSleepDetector()
+    }
+
+    private fun setUpUiElements() {
+        textView = findViewById(R.id.textView)
+        frameLayout = findViewById(R.id.preview_display_layout)
     }
 
     private fun setUpFaceMesh() {
@@ -84,7 +104,7 @@ class MainActivity : AppCompatActivity() {
         glSurfaceView.setSolutionResultRenderer(FaceMeshResultGlRenderer())
         glSurfaceView.setRenderInputImage(true)
         faceMesh.setResultListener { faceMeshResult: FaceMeshResult? ->
-            logNoseLandmark(faceMeshResult,  /*showPixelValues=*/false)
+            sleepDetector.detectSleep(faceMeshResult)
             glSurfaceView.setRenderData(faceMeshResult)
             glSurfaceView.requestRender()
         }
@@ -93,7 +113,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun attachGLSurfaceViewToFrameLayout() {
         // Updates the preview layout.
-        val frameLayout = findViewById<FrameLayout>(R.id.preview_display_layout)
         frameLayout.removeAllViewsInLayout()
         frameLayout.addView(glSurfaceView)
         glSurfaceView.visibility = View.VISIBLE
@@ -115,29 +134,47 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    // TODO: Predict Eye Open or Close based on the eye landmark
-    private fun logNoseLandmark(result: FaceMeshResult?, showPixelValues: Boolean) {
-        if (result == null || result.multiFaceLandmarks().isEmpty()) {
-            return
-        }
-        val noseLandmark = result.multiFaceLandmarks()[0].landmarkList[1]
-        // For Bitmaps, show the pixel values. For texture inputs, show the normalized coordinates.
-        if (showPixelValues) {
-            val width = result.inputBitmap().width
-            val height = result.inputBitmap().height
-            Log.i(
-                TAG, String.format(
-                    "MediaPipe Face Mesh nose coordinates (pixel values): x=%f, y=%f",
-                    noseLandmark.x * width, noseLandmark.y * height
-                )
-            )
+    private fun setUpSleepDetector() {
+        sleepDetector = SleepDetector()
+        sleepDetector.setOnSleepListener(
+            object : OnSleepListener {
+                override fun onEyeOpen() {
+                    runOnUiThread {
+                        textView.text = getString(R.string.eye_status_open)
+                    }
+                }
+
+                override fun onEyeClose() {
+                    runOnUiThread {
+                        textView.text = getString(R.string.eye_status_closed)
+                    }
+                }
+
+                override fun onSleep() {
+                    runOnUiThread {
+                        textView.text = getString(R.string.eye_status_sleeping)
+                        vibrate()
+                    }
+                }
+
+            }
+        )
+    }
+
+    private fun vibrate() {
+        val vib = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager =
+                getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
         } else {
-            Log.i(
-                TAG, String.format(
-                    "MediaPipe Face Mesh nose normalized coordinates (value range: [0, 1]): x=%f, y=%f",
-                    noseLandmark.x, noseLandmark.y
-                )
-            )
+            @Suppress("DEPRECATION")
+            getSystemService(VIBRATOR_SERVICE) as Vibrator
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vib.vibrate(VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vib.vibrate(300)
         }
     }
 }
