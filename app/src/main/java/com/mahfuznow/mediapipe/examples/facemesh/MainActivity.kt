@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.google.mediapipe.framework.TextureFrame
 import com.google.mediapipe.solutioncore.CameraInput
+import com.google.mediapipe.solutioncore.ResultGlRenderer
 import com.google.mediapipe.solutioncore.SolutionGlSurfaceView
 import com.google.mediapipe.solutions.facemesh.FaceMesh
 import com.google.mediapipe.solutions.facemesh.FaceMeshOptions
@@ -101,7 +102,12 @@ class MainActivity : AppCompatActivity() {
     private fun setUpGLSurfaceView() {
         // Initializes a new Gl surface view with a user-defined FaceMeshResultGlRenderer.
         glSurfaceView = SolutionGlSurfaceView(this, faceMesh.glContext, faceMesh.glMajorVersion)
-        glSurfaceView.setSolutionResultRenderer(FaceMeshResultGlRenderer())
+        glSurfaceView.setSolutionResultRenderer(
+            object : ResultGlRenderer<FaceMeshResult?> {
+                override fun setupRendering() {}
+                override fun renderResult(result: FaceMeshResult?, projectionMatrix: FloatArray?) {}
+            }
+        )
         glSurfaceView.setRenderInputImage(true)
         faceMesh.setResultListener { faceMeshResult: FaceMeshResult? ->
             sleepDetector.detectSleep(faceMeshResult)
