@@ -20,40 +20,35 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "MainActivity"
     }
 
-    private lateinit var faceMesh: FaceMesh
+    private val faceMesh: FaceMesh by lazy {
+        // Initializes a new MediaPipe Face Mesh solution instance in the streaming mode.
+        FaceMesh(
+            this,
+            FaceMeshOptions.builder()
+                .setStaticImageMode(false)
+                .setRefineLandmarks(true)
+                .setRunOnGpu(true)
+                .build()
+        )
+    }
 
     // Live camera demo UI and camera components.
-    private lateinit var cameraInput: CameraInput
-    private lateinit var glSurfaceView: SolutionGlSurfaceView<FaceMeshResult>
+    private val cameraInput: CameraInput by lazy { CameraInput(this) }
+    private val glSurfaceView: SolutionGlSurfaceView<FaceMeshResult> by lazy {
+        // Initializes a new Gl surface view with a user-defined FaceMeshResultGlRenderer.
+        SolutionGlSurfaceView(this, faceMesh.glContext, faceMesh.glMajorVersion)
+    }
 
     //Sleep Detector
-    private lateinit var sleepDetector: SleepDetector
+    private val sleepDetector: SleepDetector by lazy { SleepDetector() }
 
     //UI
-    private lateinit var frameLayout: FrameLayout
-    private lateinit var textView: TextView
+    private val textView: TextView by lazy { findViewById(R.id.textView) }
+    private val frameLayout: FrameLayout by lazy { findViewById(R.id.preview_display_layout) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        // TODO: Add a toggle to switch between the original face mesh and attention mesh.
-        initialize()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        setUpCamera()
-        startCameraAfterGLSurfaceViewIsAttached()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        cameraInput.close()
-    }
-
-    private fun initialize() {
-        //UI
-        setUpUiElements()
 
         //FaceMesh
         setUpFaceMesh()
@@ -71,44 +66,37 @@ class MainActivity : AppCompatActivity() {
         setUpSleepDetector()
     }
 
-    private fun setUpUiElements() {
-        textView = findViewById(R.id.textView)
-        frameLayout = findViewById(R.id.preview_display_layout)
+    override fun onResume() {
+        super.onResume()
+        setUpCamera()
+        startCameraAfterGLSurfaceViewIsAttached()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        cameraInput.close()
     }
 
     private fun setUpFaceMesh() {
-        // Initializes a new MediaPipe Face Mesh solution instance in the streaming mode.
-        faceMesh = FaceMesh(
-            this,
-            FaceMeshOptions.builder()
-                .setStaticImageMode(false)
-                .setRefineLandmarks(true)
-                .setRunOnGpu(true)
-                .build()
-        )
+        faceMesh.setResultListener { faceMeshResult: FaceMeshResult? ->
+            sleepDetector.detectSleep(faceMeshResult)
+            glSurfaceView.setRenderData(faceMeshResult)
+            glSurfaceView.requestRender()
+        }
         faceMesh.setErrorListener { message: String, e: RuntimeException? ->
             Log.e(TAG, "MediaPipe Face Mesh error:$message")
         }
     }
 
     private fun setUpCamera() {
-        cameraInput = CameraInput(this)
         cameraInput.setNewFrameListener { textureFrame: TextureFrame? ->
             faceMesh.send(textureFrame)
         }
     }
 
     private fun setUpGLSurfaceView() {
-        // Initializes a new Gl surface view with a user-defined FaceMeshResultGlRenderer.
-        glSurfaceView = SolutionGlSurfaceView(this, faceMesh.glContext, faceMesh.glMajorVersion)
         glSurfaceView.setSolutionResultRenderer(FaceMeshResultGlRenderer())
         glSurfaceView.setRenderInputImage(true)
-        faceMesh.setResultListener { faceMeshResult: FaceMeshResult? ->
-            sleepDetector.detectSleep(faceMeshResult)
-            glSurfaceView.setRenderData(faceMeshResult)
-            glSurfaceView.requestRender()
-        }
-        startCameraAfterGLSurfaceViewIsAttached()
     }
 
     private fun attachGLSurfaceViewToFrameLayout() {
@@ -135,19 +123,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setUpSleepDetector() {
-        sleepDetector = SleepDetector()
         sleepDetector.setOnSleepListener(
             object : OnSleepListener {
                 override fun onEyeOpen() {
-                    runOnUiThread {
-                        textView.text = getString(R.string.eye_status_open)
-                    }
+                    runOnUiThread { textView.text = getString(R.string.eye_status_open) }
                 }
 
                 override fun onEyeClose() {
-                    runOnUiThread {
-                        textView.text = getString(R.string.eye_status_closed)
-                    }
+                    runOnUiThread { textView.text = getString(R.string.eye_status_closed) }
                 }
 
                 override fun onSleep() {
