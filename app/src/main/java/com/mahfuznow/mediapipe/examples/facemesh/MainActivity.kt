@@ -1,18 +1,23 @@
 package com.mahfuznow.mediapipe.examples.facemesh
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.os.*
 import android.util.Log
-import android.view.View
-import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import com.google.mediapipe.framework.TextureFrame
-import com.google.mediapipe.solutioncore.CameraInput
-import com.google.mediapipe.solutioncore.SolutionGlSurfaceView
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.core.content.ContextCompat
+import com.google.common.util.concurrent.ListenableFuture
 import com.google.mediapipe.solutions.facemesh.FaceMesh
 import com.google.mediapipe.solutions.facemesh.FaceMeshOptions
 import com.google.mediapipe.solutions.facemesh.FaceMeshResult
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
@@ -20,134 +25,107 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "MainActivity"
     }
 
-    private lateinit var faceMesh: FaceMesh
+    //UI
+    private val textView: TextView by lazy { findViewById(R.id.textView) }
+    private val previewView: PreviewView by lazy { findViewById(R.id.preview_view) }
 
-    // Live camera demo UI and camera components.
-    private lateinit var cameraInput: CameraInput
-    private lateinit var glSurfaceView: SolutionGlSurfaceView<FaceMeshResult>
+    //CameraX
+    private val imageAnalyzer: ImageAnalysis by lazy {
+        // ImageAnalysis. Using RGBA 8888 to match how our models work
+        ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+            .build()
+    }
+    private val preview: Preview by lazy {
+        Preview.Builder().build().also {
+            it.setSurfaceProvider(previewView.surfaceProvider)
+        }
+    }
+    private val cameraProviderFuture: ListenableFuture<ProcessCameraProvider> by lazy {
+        ProcessCameraProvider.getInstance(this)
+    }
+    private val cameraSelector: CameraSelector by lazy { CameraSelector.DEFAULT_FRONT_CAMERA }
+    private val cameraExecutor: ExecutorService by lazy { Executors.newSingleThreadExecutor() }
+    private lateinit var bitmapBuffer: Bitmap
+
+    //Face Mesh
+    private val faceMesh: FaceMesh by lazy {
+        FaceMesh(
+            this,
+            FaceMeshOptions.builder()
+                .setStaticImageMode(true)
+                .setRefineLandmarks(true)
+                .setRunOnGpu(true)
+                .build()
+        )
+    }
 
     //Sleep Detector
-    private lateinit var sleepDetector: SleepDetector
-
-    //UI
-    private lateinit var frameLayout: FrameLayout
-    private lateinit var textView: TextView
+    private val sleepDetector: SleepDetector by lazy { SleepDetector() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        // TODO: Add a toggle to switch between the original face mesh and attention mesh.
-        initialize()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        setUpCamera()
-        startCameraAfterGLSurfaceViewIsAttached()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        cameraInput.close()
-    }
-
-    private fun initialize() {
-        //UI
-        setUpUiElements()
-
-        //FaceMesh
-        setUpFaceMesh()
 
         //Camera
         setUpCamera()
 
-        //GL SurfaceView
-        setUpGLSurfaceView()
-
-        //FrameLayout
-        attachGLSurfaceViewToFrameLayout()
+        //FaceMesh
+        setUpFaceMesh()
 
         //Sleep Detector
         setUpSleepDetector()
     }
 
-    private fun setUpUiElements() {
-        textView = findViewById(R.id.textView)
-        frameLayout = findViewById(R.id.preview_display_layout)
+    private fun setUpCamera() {
+        imageAnalyzer.setAnalyzer(cameraExecutor) { imageProxy ->
+            if (!::bitmapBuffer.isInitialized) {
+                // The RGB image buffer are initialized only once the analyzer has started running
+                bitmapBuffer = Bitmap.createBitmap(
+                    imageProxy.width,
+                    imageProxy.height,
+                    Bitmap.Config.ARGB_8888
+                )
+            }
+            // Copy out RGB bits to the shared bitmap buffer
+            imageProxy.use { bitmapBuffer.copyPixelsFromBuffer(imageProxy.planes[0].buffer) }
+            //faceMesh.send(bitmapBuffer)
+            faceMesh.send(bitmapBuffer, System.currentTimeMillis())
+        }
+
+        cameraProviderFuture.addListener(
+            {
+                val cameraProvider = cameraProviderFuture.get()
+                try {
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer)
+                } catch (e: Exception) {
+                    Log.d(TAG, "Use case binding failed")
+                }
+            },
+            ContextCompat.getMainExecutor(this)
+        )
     }
 
     private fun setUpFaceMesh() {
-        // Initializes a new MediaPipe Face Mesh solution instance in the streaming mode.
-        faceMesh = FaceMesh(
-            this,
-            FaceMeshOptions.builder()
-                .setStaticImageMode(false)
-                .setRefineLandmarks(true)
-                .setRunOnGpu(true)
-                .build()
-        )
+        faceMesh.setResultListener { faceMeshResult: FaceMeshResult? ->
+            sleepDetector.detectSleep(faceMeshResult)
+        }
         faceMesh.setErrorListener { message: String, e: RuntimeException? ->
             Log.e(TAG, "MediaPipe Face Mesh error:$message")
         }
     }
 
-    private fun setUpCamera() {
-        cameraInput = CameraInput(this)
-        cameraInput.setNewFrameListener { textureFrame: TextureFrame? ->
-            faceMesh.send(textureFrame)
-        }
-    }
-
-    private fun setUpGLSurfaceView() {
-        // Initializes a new Gl surface view with a user-defined FaceMeshResultGlRenderer.
-        glSurfaceView = SolutionGlSurfaceView(this, faceMesh.glContext, faceMesh.glMajorVersion)
-        glSurfaceView.setSolutionResultRenderer(FaceMeshResultGlRenderer())
-        glSurfaceView.setRenderInputImage(true)
-        faceMesh.setResultListener { faceMeshResult: FaceMeshResult? ->
-            sleepDetector.detectSleep(faceMeshResult)
-            glSurfaceView.setRenderData(faceMeshResult)
-            glSurfaceView.requestRender()
-        }
-        startCameraAfterGLSurfaceViewIsAttached()
-    }
-
-    private fun attachGLSurfaceViewToFrameLayout() {
-        // Updates the preview layout.
-        frameLayout.removeAllViewsInLayout()
-        frameLayout.addView(glSurfaceView)
-        glSurfaceView.visibility = View.VISIBLE
-        frameLayout.requestLayout()
-    }
-
-    private fun startCameraAfterGLSurfaceViewIsAttached() {
-        // The runnable to start camera after the gl surface view is attached.
-        glSurfaceView.post { startCamera() }
-    }
-
-    private fun startCamera() {
-        cameraInput.start(
-            this,
-            faceMesh.glContext,
-            CameraInput.CameraFacing.FRONT,
-            glSurfaceView.width,
-            glSurfaceView.height
-        )
-    }
-
     private fun setUpSleepDetector() {
-        sleepDetector = SleepDetector()
         sleepDetector.setOnSleepListener(
             object : OnSleepListener {
                 override fun onEyeOpen() {
-                    runOnUiThread {
-                        textView.text = getString(R.string.eye_status_open)
-                    }
+                    runOnUiThread { textView.text = getString(R.string.eye_status_open) }
                 }
 
                 override fun onEyeClose() {
-                    runOnUiThread {
-                        textView.text = getString(R.string.eye_status_closed)
-                    }
+                    runOnUiThread { textView.text = getString(R.string.eye_status_closed) }
                 }
 
                 override fun onSleep() {
